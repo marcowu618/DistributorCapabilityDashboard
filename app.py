@@ -3,9 +3,32 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
+from pathlib import Path
 
 # Set page config
 st.set_page_config(page_title="渠道能力评估模型看板", layout="wide")
+
+def resolve_default_excel():
+    """Resolve default excel path robustly for cloud/local cwd differences."""
+    base_dir = Path(__file__).resolve().parent
+    preferred = base_dir / '渠道能力评估模型-CSA-2.0.xlsx'
+    if preferred.exists():
+        return preferred
+
+    fallback_names = [
+        '渠道能力评估模型-CSA.xlsx',
+        '渠道能力评估模型-CSA -2.0.xlsx',
+    ]
+    for name in fallback_names:
+        p = base_dir / name
+        if p.exists():
+            return p
+
+    # Last fallback: try a fuzzy match in project root
+    candidates = sorted(base_dir.glob('*CSA*.xlsx'))
+    if candidates:
+        return candidates[0]
+    return preferred
 
 @st.cache_data
 def load_data(file_source):
@@ -158,7 +181,7 @@ def main():
     uploaded_file = st.sidebar.file_uploader("上传评估数据 (Excel)", type=["xlsx"])
     
     # Use default file if no file is uploaded
-    file_source = uploaded_file if uploaded_file is not None else '渠道能力评估模型-CSA-2.0.xlsx'
+    file_source = uploaded_file if uploaded_file is not None else str(resolve_default_excel())
     
     df, tech_cols = load_data(file_source)
     
