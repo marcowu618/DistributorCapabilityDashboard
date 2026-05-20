@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>渠道能力评估模型看板-三板块版</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="./data.inline.js"></script>
+  <style>
+    :root{--bg:#eef3f7;--card:#fff;--text:#1b2b3a;--muted:#647789;--line:#d7e2ea;--brand:#0e7c7b}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(165deg,#edf3f7,#f8fbfd);font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text)}
+    .wrap{max-width:1450px;margin:0 auto;padding:16px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    h1{margin:0;font-size:32px}
+    .meta{color:var(--muted);font-size:13px}
+    .tabs{display:flex;gap:8px;margin:12px 0}
+    .tab{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:600}
+    .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .panel{display:none}
+    .panel.active{display:block}
+    .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+    .filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
+    label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+    select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+    .kpi{border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:10px;padding:8px}
+    .kpi .t{font-size:12px;color:var(--muted)}
+    .kpi .v{font-size:22px;font-weight:700;margin-top:4px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .chart{height:360px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
+    h2{font-size:18px;margin:0 0 8px}
+    @media (max-width:1100px){.filters{grid-template-columns:repeat(2,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>渠道能力评估模型看板</h1>
+      <div class="meta">三板块：个人视角 / 区域与分公司 / 渠道视角</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="person">个人视角</button>
+      <button class="tab" data-tab="org">区域/分公司视角</button>
+      <button class="tab" data-tab="channel">渠道视角</button>
+    </div>
+
+    <section id="panel-person" class="panel active">
+      <div class="box">
+        <div class="filters">
+          <label>区域<select id="pArea"></select></label>
+          <label>分公司<select id="pBranch"></select></label>
+          <label>专员<select id="pPerson"></select></label>
+          <label>对比基准<select id="pCompare"><option value="none">无</option><option value="branch">分公司平均</option><option value="area">区域平均</option></select></label>
+        </div>
+      </div>
+      <div class="box">
+        <div class="kpis">
+          <div class="kpi"><div class="t">评分合计</div><div class="v" id="pkTotal">-</div></div>
+          <div class="kpi"><div class="t">专业技术能力</div><div class="v" id="pkTech">-</div></div>
+          <div class="kpi"><div class="t">工作态度与责任心</div><div class="v" id="pkAtt">-</div></div>
+          <div class="kpi"><div class="t">学习成长能力</div><div class="v" id="pkLearn">-</div></div>
+          <div class="kpi"><div class="t">沟通协助能力</div><div class="v" id="pkComm">-</div></div>
+          <div class="kpi"><div class="t">执行力与结果产出</div><div class="v" id="pkExec">-</div></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="box"><h2>个人能力画像</h2><div id="personRadar" class="chart"></div></div>
+        <div class="box"><h2>专业能力细分维度</h2><div id="personTech" class="chart"></div></div>
+      </div>
+    </section>
+
+    <section id="panel-org" class="panel">
+      <div class="box">
+        <div class="filters">
+          <label>区域<select id="oArea"><option value="ALL">全部</option></select></label>
+          <label>分公司<select id="oBranch"><option value="ALL">全部</option></select></label>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="box"><h2>区域/分公司平均分对比</h2><div id="orgBar" class="chart"></div></div>
+        <div class="box"><h2>能力评级分布</h2><div id="orgPie" class="chart"></div></div>
+      </div>
+      <div class="box"><h2>各维度整体表现</h2><div id="orgRadar" class="chart"></div></div>
+    </section>
+
+    <section id="panel-channel" class="panel">
+      <div class="box">
+        <div class="filters">
+          <label>区域<select id="cArea"><option value="ALL">全部</option></select></label>
+          <label>分公司<select id="cBranch"><option value="ALL">全部</option></select></label>
+          <label>渠道<select id="cChannel"></select></label>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="box"><h2>渠道平均分对标</h2><div id="chBar" class="chart"></div></div>
+        <div class="box"><h2>渠道能力分布（人数 vs 平均分）</h2><div id="chScatter" class="chart"></div></div>
+      </div>
+      <div class="box"><h2>所选渠道专员明细</h2><table><thead><tr><th>专员</th><th>分公司</th><th>评分合计</th><th>能力评级</th><th>专业技术能力</th></tr></thead><tbody id="chTable"></tbody></table></div>
+    </section>
+  </div>
+
+<script>
+const DIMS=["专业技术能力","工作态度与责任心","学习成长能力","沟通协助能力","执行力与结果产出"];
+const TECH=["性能验证能力","无忧切换能力","结果问题解决能力","风险管理能力","IQC/EQA管理能力","瑞印课堂-系列课能力","产品价值优势传递能力","学术支持&文章合作能力"];
+let rows=[]; let charts={};
+
+function n(v){const x=Number(v); return Number.isFinite(x)?x:0}
+function r1(x){return Math.round(x*10)/10}
+function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0}
+function u(arr){return [...new Set(arr.filter(Boolean))]}
+function groupBy(arr,key){return arr.reduce((m,x)=>((m[x[key]||"未知"]=m[x[key]||"未知"]||[]).push(x),m),{})}
+function setTxt(id,v){document.getElementById(id).textContent=r1(v)}
+
+async function loadData(){
+  try{
+    const res=await fetch('./data.json',{cache:'no-store'});
+    if(!res.ok) throw new Error('json');
+    return await res.json();
+  }catch(e){
+    if(Array.isArray(window.__CSA_DATA__)) return window.__CSA_DATA__;
+    throw e;
+  }
+}
+
+function enrich(data){
+  return data.map(x=>{
+    const tech=avg(TECH.map(k=>n(x[k])));
+    const total=tech*4+n(x["工作态度与责任心"])*1+n(x["学习成长能力"])*2+n(x["沟通协助能力"])*1.5+n(x["执行力与结果产出"])*1.5;
+    return {...x, 专业技术能力:r1(tech), 评分合计:r1(total)};
+  });
+}
+
+function initTabs(){
+  document.querySelectorAll('.tab').forEach(btn=>btn.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    Object.values(charts).forEach(c=>c&&c.resize());
+  });
+}
+
+function fill(sel,list){sel.innerHTML=list.map(x=>`<option value="${x}">${x}</option>`).join('')}
+
+function initPerson(){
+  const a=document.getElementById('pArea'), b=document.getElementById('pBranch'), p=document.getElementById('pPerson');
+  fill(a,u(rows.map(x=>x.区域)));
+  function rb(){fill(b,u(rows.filter(x=>x.区域===a.value).map(x=>x.分公司))); rp();}
+  function rp(){fill(p,rows.filter(x=>x.区域===a.value&&x.分公司===b.value).map(x=>x.应用专员)); renderPerson();}
+  a.onchange=rb; b.onchange=rp; p.onchange=renderPerson; document.getElementById('pCompare').onchange=renderPerson; rb();
+}
+
+function renderPerson(){
+  const area=document.getElementById('pArea').value, branch=document.getElementById('pBranch').value, person=document.getElementById('pPerson').value, cmp=document.getElementById('pCompare').value;
+  const inArea=rows.filter(x=>x.区域===area), inBranch=rows.filter(x=>x.区域===area&&x.分公司===branch), me=inBranch.find(x=>x.应用专员===person); if(!me) return;
+  setTxt('pkTotal',me.评分合计); setTxt('pkTech',me.专业技术能力); setTxt('pkAtt',me['工作态度与责任心']); setTxt('pkLearn',me['学习成长能力']); setTxt('pkComm',me['沟通协助能力']); setTxt('pkExec',me['执行力与结果产出']);
+
+  const base = cmp==='branch' ? inBranch : (cmp==='area'?inArea:[]);
+  const radarSeries=[{name:me.应用专员,value:DIMS.map(k=>n(me[k]))}];
+  if(base.length) radarSeries.push({name:cmp==='branch'?'分公司平均':'区域平均', value:DIMS.map(k=>avg(base.map(x=>n(x[k]))))});
+  charts.personRadar.setOption({tooltip:{},legend:{data:radarSeries.map(x=>x.name)},radar:{indicator:DIMS.map(d=>({name:d,max:10}))},series:[{type:'radar',data:radarSeries}]});
+
+  charts.personTech.setOption({tooltip:{trigger:'axis'},xAxis:{type:'value',max:10},yAxis:{type:'category',inverse:true,data:TECH.map(x=>x.replace('能力',''))},series:[{type:'bar',data:TECH.map(k=>n(me[k])),itemStyle:{color:'#0e7c7b'},label:{show:true,position:'right'}}]});
+}
+
+function initOrg(){
+  const a=document.getElementById('oArea'), b=document.getElementById('oBranch');
+  a.innerHTML='<option value="ALL">全部</option>'+u(rows.map(x=>x.区域)).map(x=>`<option value="${x}">${x}</option>`).join('');
+  function rb(){
+    const arr=a.value==='ALL'?rows:rows.filter(x=>x.区域===a.value);
+    b.innerHTML='<option value="ALL">全部</option>'+u(arr.map(x=>x.分公司)).map(x=>`<option value="${x}">${x}</option>`).join('');
+    renderOrg();
+  }
+  a.onchange=rb; b.onchange=renderOrg; rb();
+}
+function orgFiltered(){
+  const a=document.getElementById('oArea').value,b=document.getElementById('oBranch').value;
+  return rows.filter(x=>(a==='ALL'||x.区域===a)&&(b==='ALL'||x.分公司===b));
+}
+function renderOrg(){
+  const data=orgFiltered();
+  const gArea=groupBy(data,'区域'), gBranch=groupBy(data,'分公司');
+  const list=[]; Object.keys(gArea).forEach(k=>list.push({name:'区域-'+k,v:avg(gArea[k].map(x=>n(x.评分合计)))})); Object.keys(gBranch).forEach(k=>list.push({name:'分公司-'+k,v:avg(gBranch[k].map(x=>n(x.评分合计)))}));
+  list.sort((a,b)=>a.v-b.v);
+  charts.orgBar.setOption({tooltip:{trigger:'axis'},xAxis:{type:'value',max:100},yAxis:{type:'category',data:list.map(x=>x.name)},series:[{type:'bar',data:list.map(x=>r1(x.v)),itemStyle:{color:'#1f9d8b'}}]});
+
+  const lv=groupBy(data,'能力评级');
+  charts.orgPie.setOption({tooltip:{trigger:'item'},series:[{type:'pie',radius:['45%','72%'],data:Object.keys(lv).map(k=>({name:k,value:lv[k].length}))}]});
+
+  charts.orgRadar.setOption({tooltip:{},radar:{indicator:DIMS.map(d=>({name:d,max:10}))},series:[{type:'radar',data:[{name:'整体平均',value:DIMS.map(k=>avg(data.map(x=>n(x[k]))))}]}]});
+}
+
+function initChannel(){
+  const a=document.getElementById('cArea'), b=document.getElementById('cBranch'), c=document.getElementById('cChannel');
+  a.innerHTML='<option value="ALL">全部</option>'+u(rows.map(x=>x.区域)).map(x=>`<option value="${x}">${x}</option>`).join('');
+  function rb(){
+    const arr=a.value==='ALL'?rows:rows.filter(x=>x.区域===a.value);
+    b.innerHTML='<option value="ALL">全部</option>'+u(arr.map(x=>x.分公司)).map(x=>`<option value="${x}">${x}</option>`).join('');
+    rc();
+  }
+  function rc(){
+    const arr=channelFiltered(false);
+    fill(c,u(arr.map(x=>x.渠道名称))); renderChannel();
+  }
+  a.onchange=rb; b.onchange=rc; c.onchange=renderChannel; rb();
+}
+function channelFiltered(withChannel=true){
+  const a=document.getElementById('cArea').value,b=document.getElementById('cBranch').value,c=document.getElementById('cChannel').value;
+  return rows.filter(x=>(a==='ALL'||x.区域===a)&&(b==='ALL'||x.分公司===b)&&(!withChannel||x.渠道名称===c));
+}
+function renderChannel(){
+  const all=channelFiltered(false), chosen=channelFiltered(true);
+  const g=groupBy(all,'渠道名称');
+  const arr=Object.keys(g).map(k=>({name:k,head:g[k].length,avg:avg(g[k].map(x=>n(x.评分合计)))}));
+  arr.sort((a,b)=>a.avg-b.avg);
+  charts.chBar.setOption({tooltip:{trigger:'axis'},xAxis:{type:'value',max:100},yAxis:{type:'category',data:arr.map(x=>x.name)},series:[{type:'bar',data:arr.map(x=>r1(x.avg)),itemStyle:{color:'#2b8cc4'},label:{show:true,position:'right'}}]});
+  charts.chScatter.setOption({tooltip:{formatter:p=>`${p.data.name}<br/>人数: ${p.data.value[0]}<br/>均分: ${r1(p.data.value[1])}`},xAxis:{name:'专员人数',type:'value',minInterval:1},yAxis:{name:'渠道平均分',type:'value',min:0,max:100},series:[{type:'scatter',data:arr.map(x=>({name:x.name,value:[x.head,x.avg,x.avg]})),symbolSize:v=>Math.max(10,v[2]/4),itemStyle:{color:'#4a6fa5'}}]});
+  const tbody=document.getElementById('chTable');
+  tbody.innerHTML=chosen.sort((a,b)=>n(b.评分合计)-n(a.评分合计)).map(x=>`<tr><td>${x.应用专员}</td><td>${x.分公司}</td><td>${r1(x.评分合计)}</td><td>${x.能力评级||''}</td><td>${r1(x.专业技术能力)}</td></tr>`).join('');
+}
+
+function initCharts(){
+  charts.personRadar=echarts.init(document.getElementById('personRadar'));
+  charts.personTech=echarts.init(document.getElementById('personTech'));
+  charts.orgBar=echarts.init(document.getElementById('orgBar'));
+  charts.orgPie=echarts.init(document.getElementById('orgPie'));
+  charts.orgRadar=echarts.init(document.getElementById('orgRadar'));
+  charts.chBar=echarts.init(document.getElementById('chBar'));
+  charts.chScatter=echarts.init(document.getElementById('chScatter'));
+  window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));
+}
+
+(async function(){
+  rows=enrich(await loadData());
+  initTabs(); initCharts(); initPerson(); initOrg(); initChannel();
+})();
+</script>
+</body>
+</html>

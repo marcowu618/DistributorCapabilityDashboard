@@ -158,7 +158,7 @@ def main():
     uploaded_file = st.sidebar.file_uploader("上传评估数据 (Excel)", type=["xlsx"])
     
     # Use default file if no file is uploaded
-    file_source = uploaded_file if uploaded_file is not None else '渠道能力评估模型-CSA.xlsx'
+    file_source = uploaded_file if uploaded_file is not None else '渠道能力评估模型-CSA-2.0.xlsx'
     
     df, tech_cols = load_data(file_source)
     
@@ -384,13 +384,30 @@ def main():
     channel_stats.columns = ['渠道名称', '平均分', '总人数', '最高分', '最低分', '人员名单']
     channel_stats = channel_stats.sort_values('平均分', ascending=False)
 
+    # Readability controls for crowded channel charts
+    st.caption("图表优化：当渠道数量较多时，可通过下方参数减少重叠、聚焦关键渠道。")
+    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1, 1, 1])
+    with ctrl_col1:
+        min_headcount = st.number_input("最少专员人数门槛", min_value=1, max_value=50, value=2, step=1)
+    with ctrl_col2:
+        top_n = st.slider("展示 Top N 渠道（按平均分）", min_value=5, max_value=min(60, max(5, len(channel_stats))), value=min(20, len(channel_stats)))
+    with ctrl_col3:
+        only_top_for_scatter = st.checkbox("分布图仅显示 Top N", value=False)
+
+    filtered_channel_stats = channel_stats[channel_stats['总人数'] >= min_headcount].copy()
+    if filtered_channel_stats.empty:
+        st.warning("当前门槛下没有可展示的渠道，请降低“最少专员人数门槛”。")
+        return
+
+    channel_stats_top = filtered_channel_stats.head(top_n).copy()
+
     c_col1, c_col2 = st.columns([2, 1])
 
     with c_col1:
         st.subheader("渠道商平均分对标")
-        # Horizontal bar chart for channel comparison
+        # Horizontal bar chart for channel comparison (top N to avoid overcrowding)
         fig_channel = px.bar(
-            channel_stats,
+            channel_stats_top.sort_values('平均分', ascending=True),
             x='平均分',
             y='渠道名称',
             orientation='h',
@@ -402,35 +419,52 @@ def main():
         fig_channel.update_traces(texttemplate='%{x:.1f}', textposition='outside')
         fig_channel.update_layout(
             yaxis={'categoryorder':'total ascending'},
-            height=max(400, len(channel_stats) * 30), # Dynamic height
-            xaxis_range=[0, 105]
+            height=max(420, len(channel_stats_top) * 26), # Dynamic height with cap via top_n
+            xaxis_range=[0, 105],
+            margin=dict(l=10, r=10, t=40, b=20)
         )
         st.plotly_chart(fig_channel, use_container_width=True)
 
     with c_col2:
         st.subheader("渠道能力分布概览")
-        # Scatter plot to show average vs headcount
+        scatter_source = channel_stats_top if only_top_for_scatter else filtered_channel_stats
+        scatter_source = scatter_source.copy()
+        # Slight jitter on x to reduce exact overlap when headcount is same
+        scatter_source['总人数抖动'] = scatter_source['总人数'] + np.random.uniform(-0.12, 0.12, len(scatter_source))
+
+        # Bubble chart: x=headcount, y=avg score
         fig_scatter = px.scatter(
-            channel_stats,
-            x='总人数',
+            scatter_source,
+            x='总人数抖动',
             y='平均分',
-            size='平均分',
+            size='总人数',
             color='平均分',
             hover_name='渠道名称',
             color_continuous_scale='tealgrn',
-            labels={'平均分': '渠道平均分', '总人数': '专员人数'}
+            labels={'总人数抖动': '专员人数', '平均分': '渠道平均分'},
+            hover_data={'总人数': True, '最高分': ':.1f', '最低分': ':.1f'}
+        )
+        fig_scatter.update_traces(
+            marker=dict(
+                sizemode='area',
+                sizeref=max(0.2, 2.0 * scatter_source['总人数'].max() / (42.0 ** 2)),
+                sizemin=8,
+                line=dict(width=0.8, color='white'),
+                opacity=0.75
+            )
         )
         fig_scatter.update_layout(
-            height=400,
-            xaxis=dict(dtick=1),
+            height=420,
+            xaxis=dict(title='专员人数', dtick=1),
+            yaxis=dict(title='渠道平均分', range=[0, 100]),
             margin=dict(l=0, r=0, t=30, b=0)
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
         
-        st.info("💡 请将鼠标**悬停**在气泡上查看细则；气泡越大代表平均分越高，越靠右上越优秀")
+        st.info("💡 气泡图已恢复：横轴为专员人数，纵轴为渠道平均分；同人数渠道已做轻微错位，避免完全重叠。")
 
     # Channel Detail Selection
-    selected_channel = st.selectbox("选择渠道商查看内部人员明细", options=channel_stats['渠道名称'].unique())
+    selected_channel = st.selectbox("选择渠道商查看内部人员明细", options=filtered_channel_stats['渠道名称'].unique())
     if selected_channel:
         channel_detail = filtered_df[filtered_df['渠道名称'] == selected_channel].sort_values('评分合计', ascending=False)
         st.write(f"🔍 **{selected_channel}** 共有 {len(channel_detail)} 名专员：")
